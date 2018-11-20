@@ -6,9 +6,20 @@
 #include <wait.h>
 
 int bg_flag = 0;
+pid_t current_child = 0;
 
 void loop();
 char **parse_cmd(char* line);
+void sigint();
+void sigtstp();
+
+void sigint(){
+    kill(current_child, SIGINT);
+}
+
+void sigtstp(){
+    kill(current_child, SIGTSTP);
+}
 
 
 void loop(){
@@ -40,6 +51,10 @@ void loop(){
         if(child == 0){
             execvp(cmd[0], cmd);
         } else {
+            current_child = child;
+            signal(SIGINT, sigint);
+            signal(SIGTSTP, sigtstp);
+
             if(bg_flag){
                 printf("%i \n", child);
             }
