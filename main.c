@@ -13,13 +13,33 @@ char **parse_cmd(char* line);
 void sigint();
 void sigtstp();
 void sig_chld(int signo);
+void pctrl(int child);
+
+void pctrl(int child){
+    int status;
+    current_child = child;
+    signal(SIGINT, sigint);
+    signal(SIGTSTP, sigtstp);
+    signal(SIGCHLD, sig_chld);
+
+    if(bg_flag){
+        printf("%i \n", child);
+    }
+    else{
+        waitpid(child, &status, WUNTRACED);
+    }
+}
 
 void sigint(){
-    kill(current_child, SIGINT);
+    if(!bg_flag) {
+        kill(current_child, SIGINT);
+        current_child = 0;
+    }
 }
 
 void sigtstp(){
-    kill(current_child, SIGTSTP);
+    if(!bg_flag)
+        kill(current_child, SIGTSTP);
 }
 
 void sig_chld(int signo) {
@@ -27,7 +47,8 @@ void sig_chld(int signo) {
     int     stat;
     while ( (pid = waitpid(-1, &stat, WNOHANG)) > 0) {
         printf("child %d terminated\n", pid);
-        current_child = 0;
+        if(WIFEXITED(stat))
+            current_child = 0;
     }
 }
 
@@ -62,10 +83,21 @@ void loop(){
         }
 
         if(!strcmp(cmd[0], "fg")){
-            kill(current_child, SIGCONT);
+            if(!bg_flag) {
+                kill(current_child, SIGCONT);
+                waitpid(current_child, &status, WUNTRACED);
+                free(cmd);
+                free(line);
+                continue;
+            }
         }
         if(!strcmp(cmd[0], "bg")){
+            kill(current_child, SIGCONT);
             bg_flag = 1;
+            printf("%i \n", child);
+            free(cmd);
+            free(line);
+            continue;
         }
 
 
